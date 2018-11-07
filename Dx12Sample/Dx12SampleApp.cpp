@@ -45,10 +45,40 @@ void Dx12Sample::Dx12SampleApp::LoadPipeline()
 	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 
 	ThrowIfFailed(_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&_commandQueue)));
-
+	
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 	swapChainDesc.BufferCount = FrameCount;
-	swapChainDesc.Width = 2;
+	swapChainDesc.Width = _form->GetClientWidth();
+	swapChainDesc.Height = _form->GetClientHeight();
+	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	swapChainDesc.SampleDesc.Count = 1;
+	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	
+	ComPtr<IDXGISwapChain1> swapChain;
+	ThrowIfFailed(factory->CreateSwapChainForHwnd(_commandQueue.Get(), _form->GetHwnd(), &swapChainDesc, nullptr, nullptr, &swapChain));
+	ThrowIfFailed(swapChain.As(&_swapChain));
+
+	_frameIndex = _swapChain->GetCurrentBackBufferIndex();
+
+	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
+	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	rtvHeapDesc.NumDescriptors = FrameCount;
+
+	ThrowIfFailed(_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&_rtvHeap)));
+
+	_rtvDescriptorSize = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(_rtvHeap->GetCPUDescriptorHandleForHeapStart());
+	for (UINT i = 0; i < FrameCount; ++i)
+	{
+		ThrowIfFailed(_swapChain->GetBuffer(i, IID_PPV_ARGS(&_renderTargets[i])));
+		_device->CreateRenderTargetView(_renderTargets[i].Get(), nullptr, rtvHandle);
+		rtvHandle.Offset(1, _rtvDescriptorSize);
+	}
+
+	ThrowIfFailed(_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&_commandAllocator)));
 }
 
 void Dx12Sample::Dx12SampleApp::LoadAssets()
