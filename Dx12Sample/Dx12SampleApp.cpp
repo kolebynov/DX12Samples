@@ -25,7 +25,7 @@ void Dx12Sample::Dx12SampleApp::LoadPipeline()
 #ifdef _DEBUG
 	{
 		ComPtr<ID3D12Debug3> debugController;
-		if (D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))
+		if (D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)) && debugController != nullptr)
 		{
 			debugController->EnableDebugLayer();
 			dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
