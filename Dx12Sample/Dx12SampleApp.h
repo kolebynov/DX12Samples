@@ -38,9 +38,12 @@ namespace Dx12Sample
 		UINT64 _fenceValue;
 
 		Form *_form;
+		float _aspectRatio;
 
 		void LoadPipeline();
 		void LoadAssets();
+		void Render();
+		void Destroy();
 		void PopulateCommandList();
 		void WaitForPrevFrame();
 		void GetHardwareAdapter(IDXGIFactory4 *pFactory, IDXGIAdapter1 **ppAdapter);
