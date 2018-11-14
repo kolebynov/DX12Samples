@@ -136,6 +136,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Dx12Helpers.h" />
     <ClInclude Include="Dx12SampleApp.h" />
     <ClInclude Include="Helpers.h" />
     <ClInclude Include="Resource.h" />

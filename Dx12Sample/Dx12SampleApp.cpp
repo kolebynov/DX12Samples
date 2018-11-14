@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Dx12SampleApp.h"
 #include "Vertex.h"
+#include "Dx12Helpers.h"
 
 using namespace Forms;
 
@@ -26,27 +27,23 @@ void Dx12Sample::Dx12SampleApp::LoadPipeline()
 
 #ifdef _DEBUG
 	{
-		ComPtr<ID3D12Debug3> debugController;
-		if (D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)) && debugController != nullptr)
-		{
-			debugController->EnableDebugLayer();
-			dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
-		}
+		
+		ComPtr<ID3D12Debug3> debugController = static_cast<ID3D12Debug3*>(Dx12Helpers::Debug::Get());
+		debugController->EnableDebugLayer();
+		dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
 	}
 #endif
 
-	ComPtr<IDXGIFactory4> factory;
-	ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory)));
+	ComPtr<IDXGIFactory4> factory = static_cast<IDXGIFactory4*>(Dx12Helpers::Factory::Create(dxgiFactoryFlags));
 
-	ComPtr<IDXGIAdapter1> adapter;
-	GetHardwareAdapter(factory.Get(), &adapter);
-	ThrowIfFailed(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&_device)));
+	ComPtr<IDXGIAdapter1> adapter = static_cast<IDXGIAdapter1*>(Dx12Helpers::Adapter::GetHardwareAdapter(factory.Get(), D3D_FEATURE_LEVEL_11_0));
+	_device = static_cast<ID3D12Device3*>(Dx12Helpers::Device::Create(adapter.Get(), D3D_FEATURE_LEVEL_11_0));
 
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 
-	ThrowIfFailed(_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&_commandQueue)));
+	_commandQueue = Dx12Helpers::CommandQueue::Create(_device.Get(), &queueDesc);
 	
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 	swapChainDesc.BufferCount = FrameCount;
@@ -55,11 +52,9 @@ void Dx12Sample::Dx12SampleApp::LoadPipeline()
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	swapChainDesc.SampleDesc.Count = 1;
-	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; 
 	
-	ComPtr<IDXGISwapChain1> swapChain;
-	ThrowIfFailed(factory->CreateSwapChainForHwnd(_commandQueue.Get(), _form->GetHwnd(), &swapChainDesc, nullptr, nullptr, &swapChain));
-	ThrowIfFailed(swapChain.As(&_swapChain));
+	_swapChain = static_cast<IDXGISwapChain3*>(Dx12Helpers::SwapChain::CreateForHwnd(factory.Get(), _commandQueue.Get(), _form->GetHwnd(), &swapChainDesc, nullptr, nullptr));
 
 	_frameIndex = _swapChain->GetCurrentBackBufferIndex();
 
@@ -68,7 +63,7 @@ void Dx12Sample::Dx12SampleApp::LoadPipeline()
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvHeapDesc.NumDescriptors = FrameCount;
 
-	ThrowIfFailed(_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&_rtvHeap)));
+	_rtvHeap = Dx12Helpers::DescriptorHeap::Create(_device.Get(), &rtvHeapDesc);
 
 	_rtvDescriptorSize = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
@@ -80,17 +75,14 @@ void Dx12Sample::Dx12SampleApp::LoadPipeline()
 		rtvHandle.Offset(1, _rtvDescriptorSize);
 	}
 
-	ThrowIfFailed(_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&_commandAllocator)));
+	_commandAllocator = Dx12Helpers::CommandAllocator::Create(_device.Get(), D3D12_COMMAND_LIST_TYPE_DIRECT);
 }
 
 void Dx12Sample::Dx12SampleApp::LoadAssets()
 {
 	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
 	rootSignatureDesc.Init(0, nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-	ComPtr<ID3DBlob> signature, error;
-	ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
-	ThrowIfFailed(_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&_rootSignature)));
+	_rootSignature = Dx12Helpers::RootSignature::Create(_device.Get(), &rootSignatureDesc);
 
 	ComPtr<ID3DBlob> vertexShader, pixelShader;
 
@@ -131,9 +123,9 @@ void Dx12Sample::Dx12SampleApp::LoadAssets()
 
 	Vertex triangleVertices[] = 
 	{
-		{ { 0.f, 0.25f * _aspectRatio, 0.f }, { 1.f, 0.f, 0.f, 1.f } },
-		{ { 0.25f, -0.25f * _aspectRatio, 0.f }, { 0.f, 1.f, 0.f, 1.f } },
-		{ { -0.25f, -0.25f * _aspectRatio, 0.f }, { 0.f, 0.f, 1.f, 1.f } }
+		{ { 0.f, 0.5f, 0.f }, { 1.f, 0.f, 0.f, 1.f } },
+		{ { 0.25f, -0.5f, 0.f }, { 0.f, 1.f, 0.f, 1.f } },
+		{ { -0.25f, -0.5f, 0.f }, { 0.f, 0.f, 1.f, 1.f } }
 	};
 
 	const UINT vertexBufferSize = sizeof(triangleVertices);
@@ -229,32 +221,4 @@ void Dx12Sample::Dx12SampleApp::WaitForPrevFrame()
 	}
 
 	_frameIndex = _swapChain->GetCurrentBackBufferIndex();
-}
-
-void Dx12Sample::Dx12SampleApp::GetHardwareAdapter(IDXGIFactory4 * pFactory, IDXGIAdapter1 ** ppAdapter)
-{
-	ComPtr<IDXGIAdapter1> adapter;
-	*ppAdapter = nullptr;
-
-	for (UINT adapterIndex = 0; DXGI_ERROR_NOT_FOUND != pFactory->EnumAdapters1(adapterIndex, &adapter); ++adapterIndex)
-	{
-		DXGI_ADAPTER_DESC1 desc;
-		adapter->GetDesc1(&desc);
-
-		if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
-		{
-			// Don't select the Basic Render Driver adapter.
-			// If you want a software adapter, pass in "/warp" on the command line.
-			continue;
-		}
-
-		// Check to see if the adapter supports Direct3D 12, but don't create the
-		// actual device yet.
-		if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
-		{
-			break;
-		}
-	}
-
-	*ppAdapter = adapter.Detach();
 }

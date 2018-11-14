@@ -46,6 +46,5 @@ namespace Dx12Sample
 		void Destroy();
 		void PopulateCommandList();
 		void WaitForPrevFrame();
-		void GetHardwareAdapter(IDXGIFactory4 *pFactory, IDXGIAdapter1 **ppAdapter);
 	};
 }
